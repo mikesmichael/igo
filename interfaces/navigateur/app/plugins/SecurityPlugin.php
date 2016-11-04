@@ -21,8 +21,14 @@ class SecurityPlugin extends Plugin
         $action = $dispatcher->getActionName();
         $config = $this->getDI()->get("config");
 
+        if(isset($config->application->authentification->moduleSession) && $config->application->authentification->moduleSession) {
+            $sessionModule = $config->application->authentification->moduleSession;
+        }
+        else {
+            $sessionModule = "SessionController";
+        }
+
         if($controller === "connexion" || $controller === "error"){
-            $config = $this->getDI()->get("config");
             $this->getDI()->get("view")->setViewsDir($config->application->services->viewsDir);
         }else if($controller === "igo" && ($action === "configuration" || $action === "index")){
             $user = $this->session->get("info_utilisateur");
@@ -46,18 +52,18 @@ class SecurityPlugin extends Plugin
             } else if (!$authRequise && !$this->estAuthentifie()){
                 $authentificationModule = $this->getDI()->get("authentificationModule");
                 if(!$this->session->has("info_utilisateur")) {
-                    $this->session->set("info_utilisateur", new SessionController());
+                    $this->session->set("info_utilisateur", new $sessionModule());
                 }
                 $configurationSysteme = $this->getDI()->get("config");
                 if($configurationSysteme->offsetExists("database")) {
                     if($this->estRoleSelectionneRequis()){
-                        $profilAnonyme = IgoProfil::findFirst("nom = '{$configurationSysteme->application->authentification->profilAnonyme->nom}'");
+                        $profilAnonyme = IgoProfil::findFirst("nom = '{$configurationSysteme->application->authentification->nomProfilAnonyme}'");
                         if($profilAnonyme){
                             $this->session->get("info_utilisateur")->profils = array($profilAnonyme->toArray());
                             $this->session->get("info_utilisateur")->profilActif = $this->session->get("info_utilisateur")->profils[0]['id'];
                         }
-                    } else if(isset($configurationSysteme->application->authentification->profilAnonyme->nom)){
-                        $this->session->get("info_utilisateur")->profils = IgoProfil::find("nom = '{$configurationSysteme->application->authentification->profilAnonyme->nom}'")->toArray();
+                    } else if(isset($configurationSysteme->application->authentification->nomProfilAnonyme)){
+                        $this->session->get("info_utilisateur")->profils = IgoProfil::find("nom = '{$configurationSysteme->application->authentification->nomProfilAnonyme}'")->toArray();
                     }
                 }
                 $this->session->get("info_utilisateur")->estAnonyme = true;
@@ -137,9 +143,9 @@ class SecurityPlugin extends Plugin
         }
         if(file_exists($xmlPath)){
             $element = simplexml_load_file($xmlPath);
-            if(isset($element->serveur) && isset($element->serveur->authentification) && isset($element->serveur->authentification->children()->profilAnonyme->attributes()->nom)){
-               $this->getDi()->getConfig()->application->authentification->profilAnonyme->nom = (String) $element->serveur->authentification->children()->profilAnonyme->attributes()->nom;
-               $this->session->set('nomProfilAnonyme', $this->getDi()->getConfig()->application->authentification->profilAnonyme->nom);
+            if(isset($element->serveur) && isset($element->serveur->authentification) && isset($element->serveur->authentification->attributes()->nomProfilAnonyme)){
+               $this->getDi()->getConfig()->application->authentification->nomProfilAnonyme = (String) $element->serveur->authentification->attributes()->nomProfilAnonyme;
+               $this->session->set('nomProfilAnonyme', $this->getDi()->getConfig()->application->authentification->nomProfilAnonyme);
             }
         } else { //url externe
             $element = simplexml_load_string(curl_file_get_contents($xmlPath));
